@@ -1,0 +1,30 @@
+name: Test seat scrape
+
+# Manual-only diagnostic to check whether the Playwright seat scraper can
+# clear AMC's Cloudflare protection from a GitHub Actions runner, before
+# wiring seat-level checks into the main monitor workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      showtime_id:
+        description: "AMC showtime id (the number in amctheatres.com/showtimes/<id>/seats)"
+        required: true
+
+jobs:
+  test-scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Run seat scrape diagnostic
+        run: python scripts/test_seat_scrape.py "${{ inputs.showtime_id }}"
