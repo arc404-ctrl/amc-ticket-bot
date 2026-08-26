@@ -25,4 +25,11 @@ def test_showtime_id_prefers_explicit_id():
     assert showtime_id({"id": 123}) == "123"
     assert showtime_id({"showtimeId": "abc"}) == "abc"
     fallback = {"movieName": "Odyssey", "showDateTimeLocal": "2026-09-01T19:00:00"}
-    assert showtime_id(fallback) == "Odyssey-2026-09-01T19:00:00"
+    assert showtime_id(fallback) == "Odyssey|2026-09-01T19:00:00||"
+
+
+def test_showtime_id_fallback_disambiguates_same_time_different_format():
+    common = {"movieName": "Odyssey", "showDateTimeLocal": "2026-09-01T19:00:00"}
+    a = {**common, "premiumFormat": "70mm IMAX", "auditorium": "1"}
+    b = {**common, "premiumFormat": "Dolby Cinema", "auditorium": "2"}
+    assert showtime_id(a) != showtime_id(b)

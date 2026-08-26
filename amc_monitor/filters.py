@@ -27,4 +27,9 @@ def showtime_id(showtime):
         return str(showtime["id"])
     if showtime.get("showtimeId"):
         return str(showtime["showtimeId"])
-    return f"{showtime.get('movieName')}-{showtime.get('showDateTimeLocal')}"
+    # No stable id in the payload -- build one from enough fields that two
+    # distinct showtimes at the same time (different format/auditorium)
+    # don't collide and silently shadow each other.
+    when = showtime.get("showDateTimeLocal") or showtime.get("showDateTimeUtc") or ""
+    auditorium = showtime.get("auditorium") or showtime.get("auditoriumNumber") or ""
+    return f"{showtime.get('movieName')}|{when}|{_get_format(showtime)}|{auditorium}"

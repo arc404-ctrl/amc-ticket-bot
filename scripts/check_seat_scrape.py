@@ -5,7 +5,7 @@ AMC's seat-selection page and clear Cloudflare from wherever this runs
 monitor will execute it).
 
 Usage:
-    python scripts/test_seat_scrape.py <showtime_id>
+    python scripts/check_seat_scrape.py <showtime_id>
 
 Exits non-zero and prints a clear reason on failure (Cloudflare block vs.
 markup mismatch vs. other error) so the GitHub Actions log makes the
@@ -25,7 +25,7 @@ from amc_monitor.seat_scraper import (  # noqa: E402
 
 def main():
     if len(sys.argv) < 2:
-        print("usage: python scripts/test_seat_scrape.py <showtime_id>")
+        print("usage: python scripts/check_seat_scrape.py <showtime_id>")
         sys.exit(2)
 
     showtime_id = sys.argv[1]

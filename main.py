@@ -46,7 +46,11 @@ def main():
             f"{config.THEATRE_NAME}\n"
             f"{when}"
         )
-        send_message(text)
+        try:
+            send_message(text)
+        except Exception as exc:
+            log.error("Failed to send Telegram alert for showtime %s: %s", sid, exc)
+            continue
         notified.add(sid)
         new_alerts += 1
         log.info("Notified for showtime %s", sid)

@@ -40,7 +40,7 @@ def find_theatre_id(name_substring):
 
 
 def fetch_showtimes_for_date(theatre_id, day):
-    date_str = f"{day.month}-{day.day}-{day.year}"
+    date_str = day.strftime("%m-%d-%Y")
     url = f"{config.AMC_API_BASE}/v2/theatres/{theatre_id}/showtimes/{date_str}"
     try:
         resp = requests.get(url, headers=_headers(), timeout=15)
@@ -48,6 +48,12 @@ def fetch_showtimes_for_date(theatre_id, day):
         raise AmcApiError(f"request failed for {date_str}: {exc}") from exc
 
     if resp.status_code == 404:
+        log.warning(
+            "404 for theatre %s on %s -- no showtimes that day, or the date "
+            "format/theatre id doesn't match what the API expects",
+            theatre_id,
+            date_str,
+        )
         return []
     if resp.status_code == 429:
         raise AmcApiError("rate limited (429) by AMC API")

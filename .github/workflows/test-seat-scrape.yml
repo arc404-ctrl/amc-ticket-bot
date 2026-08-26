@@ -27,4 +27,4 @@ jobs:
           playwright install --with-deps chromium
 
       - name: Run seat scrape diagnostic
-        run: python scripts/test_seat_scrape.py "${{ inputs.showtime_id }}"
+        run: python scripts/check_seat_scrape.py "${{ inputs.showtime_id }}"
