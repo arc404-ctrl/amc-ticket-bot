@@ -1,9 +1,8 @@
 # amc-ticket-bot
 
-Watches AMC Lincoln Square 13 (NYC) for IMAX 70mm ticket availability for
-"Odyssey" and pings a Telegram chat the moment matching tickets go on sale,
-including a live seat-availability count. Runs on a schedule via GitHub
-Actions — no server to maintain.
+Watches AMC Lincoln Square 13 (NYC) for IMAX 70mm showtimes of "Odyssey"
+that have decent seats open, and pings a Telegram chat when they do. Runs
+on a schedule via GitHub Actions — no server to maintain.
 
 ## How it works
 
@@ -16,19 +15,36 @@ browser (Playwright/Chromium, needed to clear Cloudflare's bot check):
 1. `amc_monitor/showtime_scraper.py` scrapes the movie's showtimes-listing
    page for the configured theatre/format across a rolling window of
    upcoming days.
-2. Diffs the found showtime ids against `state.json` (ids already notified
-   about) and, for any new non-sold-out showtime, scrapes its
-   seat-selection page (`amc_monitor/seat_scraper.py`) for a live
-   available/total seat count.
-3. Sends a Telegram message with the showtime, time, and seat count.
-4. The GitHub Actions workflow commits the updated `state.json` back to the
-   branch so re-runs don't send duplicate alerts.
+2. Drops sold-out showtimes and, since the movie is already broadly on
+   sale, drops weekday showtimes before 6pm local time too (nobody with a
+   normal work schedule can get to a Tuesday 2pm) —
+   `amc_monitor/filters.py` is where to change that cutoff.
+3. For each remaining showtime, scrapes its seat map
+   (`amc_monitor/seat_scraper.py`) and picks out the "good" seats
+   (`amc_monitor/good_seats.py`: centrally located by row and column, not
+   just anything open — see that module's docstring for the exact
+   heuristic).
+4. Compares that set of good seats against what `state.json` last recorded
+   for the showtime. If it's non-empty and has changed — a showtime just
+   opened up, more seats freed up, whatever — sends a Telegram alert
+   listing the actual seats. No change means no alert, even though every
+   candidate showtime gets re-scraped every run.
+5. The GitHub Actions workflow commits the updated `state.json` back to the
+   branch.
 
 This is inherently fragile: it depends on AMC's current page markup and on
 Chromium continuing to clear Cloudflare's challenge, neither of which is
 guaranteed to keep working. If AMC changes their site, `showtime_scraper.py`
 and `seat_scraper.py` are where to look — see the module docstrings for the
 exact markup each one currently expects.
+
+Re-scraping every candidate showtime's seat map every run is the expensive
+part (~7s each) — at today's ~90 total Odyssey/IMAX-70mm showtimes across
+21 days, the time-of-day filter is what keeps this from being an
+11-minute run every 15 minutes. If `DAYS_AHEAD` or the filter changes and
+runs start taking longer than the 15-minute cron interval, runs will queue
+up behind each other (`concurrency.cancel-in-progress: false` in
+`monitor.yml`) rather than overlap, but polling will effectively slow down.
 
 ## One-time setup
 

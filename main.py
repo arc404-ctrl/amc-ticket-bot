@@ -2,9 +2,10 @@ import logging
 import sys
 
 from amc_monitor import config, state
-from amc_monitor.filters import is_available, showtime_id
+from amc_monitor.filters import format_local_time, is_attendable_time, is_available, showtime_id
+from amc_monitor.good_seats import find_good_available_seats
 from amc_monitor.scrape_utils import ScrapeError
-from amc_monitor.seat_scraper import fetch_seat_availability, summarize
+from amc_monitor.seat_scraper import fetch_seat_availability
 from amc_monitor.showtime_scraper import fetch_showtimes_for_range
 from amc_monitor.telegram_notify import send_message
 
@@ -12,19 +13,19 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger("amc-monitor")
 
 
-def _seat_summary_line(sid):
+def _good_seats_for(sid):
+    """Returns None (not []) on scrape failure, so callers can leave prior state alone and retry next run."""
     try:
         seats = fetch_seat_availability(sid)
     except ScrapeError as exc:
         log.warning("could not fetch seat map for showtime %s: %s", sid, exc)
         return None
-    summary = summarize(seats)
-    return f"{summary['available']}/{summary['total']} seats available"
+    return find_good_available_seats(seats)
 
 
 def main():
     st = state.load_state(config.STATE_FILE)
-    notified = set(st.get("notified_ids", []))
+    showtime_state = st.get("showtimes", {})
 
     try:
         showtimes = fetch_showtimes_for_range(
@@ -36,37 +37,42 @@ def main():
 
     log.info("Found %d showtimes", len(showtimes))
 
-    new_alerts = 0
-    for s in showtimes:
+    candidates = [s for s in showtimes if is_available(s) and is_attendable_time(s)]
+    log.info("%d showtimes are available and in the attendable time window", len(candidates))
+
+    changed = False
+    for s in candidates:
         sid = showtime_id(s)
-        if sid in notified or not is_available(s):
-            continue
+        good_seats = _good_seats_for(sid)
+        if good_seats is None:
+            continue  # scrape failed -- leave state as-is, try again next run
 
-        text_lines = [
-            "Tickets available!",
-            f"Odyssey — {config.FORMAT_SLUG}",
-            config.THEATRE_NAME,
-            s.get("when") or "unknown time",
-        ]
-        seat_line = _seat_summary_line(sid)
-        if seat_line:
-            text_lines.append(seat_line)
-        text = "\n".join(text_lines)
+        previous = set(showtime_state.get(sid, {}).get("good_seats", []))
+        current = set(good_seats)
 
-        try:
-            send_message(text)
-        except Exception as exc:
-            log.error("Failed to send Telegram alert for showtime %s: %s", sid, exc)
-            continue
-        notified.add(sid)
-        new_alerts += 1
-        log.info("Notified for showtime %s", sid)
+        if current and current != previous:
+            text = (
+                f"Good seats open for Odyssey ({config.FORMAT_SLUG})\n"
+                f"{config.THEATRE_NAME}\n"
+                f"{format_local_time(s)}\n"
+                f"Seats: {', '.join(sorted(current))}"
+            )
+            try:
+                send_message(text)
+            except Exception as exc:
+                log.error("Failed to send Telegram alert for showtime %s: %s", sid, exc)
+                continue  # don't update state -- retry next run
+            log.info("Notified for showtime %s: %s", sid, sorted(current))
 
-    if new_alerts:
-        state.save_state(config.STATE_FILE, {"notified_ids": sorted(notified)})
-        log.info("State updated with %d new notified showtimes", new_alerts)
+        if current != previous:
+            showtime_state[sid] = {"good_seats": sorted(current)}
+            changed = True
+
+    if changed:
+        state.save_state(config.STATE_FILE, {"showtimes": showtime_state})
+        log.info("State updated")
     else:
-        log.info("No new matching showtimes to notify about")
+        log.info("No changes in good-seat availability")
 
 
 if __name__ == "__main__":
