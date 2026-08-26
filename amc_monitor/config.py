@@ -1,18 +1,18 @@
 import os
 
-AMC_API_BASE = "https://api.amctheatres.com"
-AMC_VENDOR_KEY = os.environ.get("AMC_VENDOR_KEY", "")
-
-# Numeric theatre id, resolved once via scripts/resolve_theatre.py and then
-# hardcoded here or passed in via the AMC_THEATRE_ID secret/env var.
+# AMC has no self-service API access for showtime/seating data (see
+# README) -- these identify the movie/theatre/format on AMC's public
+# website, which amc_monitor/showtime_scraper.py and seat_scraper.py
+# scrape directly. Confirmed against a real saved page on 2026-08-25:
+# https://www.amctheatres.com/movies/the-odyssey-76238/showtimes
+#   ?date=2026-08-26&theatre=amc-lincoln-square-13&premium-offering=imax70mm
+MOVIE_SLUG = os.environ.get("AMC_MOVIE_SLUG", "the-odyssey-76238")
+THEATRE_SLUG = os.environ.get("AMC_THEATRE_SLUG", "amc-lincoln-square-13")
+FORMAT_SLUG = os.environ.get("AMC_FORMAT_SLUG", "imax70mm")
 THEATRE_NAME = "AMC Lincoln Square 13"
-THEATRE_ID = os.environ.get("AMC_THEATRE_ID", "")
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
-
-MOVIE_KEYWORDS = ["odyssey"]
-FORMAT_KEYWORDS = ["70mm", "70 mm", "imax 70mm", "imax70"]
 
 # How many days ahead to poll for showtimes on each run.
 DAYS_AHEAD = 21

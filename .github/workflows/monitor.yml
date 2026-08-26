@@ -23,14 +23,14 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
 
       - name: Run monitor
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          AMC_VENDOR_KEY: ${{ secrets.AMC_VENDOR_KEY }}
-          AMC_THEATRE_ID: ${{ secrets.AMC_THEATRE_ID }}
         run: python main.py
 
       - name: Commit updated state

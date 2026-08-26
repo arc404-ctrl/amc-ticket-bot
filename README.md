@@ -1,52 +1,38 @@
 # amc-ticket-bot
 
-Watches AMC Lincoln Square 13 (NYC) for 70mm/IMAX ticket availability for
-"Odyssey" and pings a Telegram chat the moment matching tickets go on sale.
-Runs on a schedule via GitHub Actions — no server to maintain.
+Watches AMC Lincoln Square 13 (NYC) for IMAX 70mm ticket availability for
+"Odyssey" and pings a Telegram chat the moment matching tickets go on sale,
+including a live seat-availability count. Runs on a schedule via GitHub
+Actions — no server to maintain.
 
 ## How it works
 
-1. Polls AMC's official developer API (`api.amctheatres.com`) for showtimes
-   at the configured theatre across a rolling window of upcoming days.
-2. Filters for showtimes whose title matches `Odyssey` and whose format
-   field contains a 70mm/IMAX keyword (see `amc_monitor/config.py`).
-3. Diffs against `state.json` (showtime ids already notified about) and
-   sends a Telegram message for any new, non-sold-out match.
+AMC's developer API (`developers.amctheatres.com`) gates seating and
+showtime-listing access behind a contractual approval process with no
+self-service option — there's no vendor key that gets you this data. So
+this project reads AMC's public website directly instead, via a headless
+browser (Playwright/Chromium, needed to clear Cloudflare's bot check):
+
+1. `amc_monitor/showtime_scraper.py` scrapes the movie's showtimes-listing
+   page for the configured theatre/format across a rolling window of
+   upcoming days.
+2. Diffs the found showtime ids against `state.json` (ids already notified
+   about) and, for any new non-sold-out showtime, scrapes its
+   seat-selection page (`amc_monitor/seat_scraper.py`) for a live
+   available/total seat count.
+3. Sends a Telegram message with the showtime, time, and seat count.
 4. The GitHub Actions workflow commits the updated `state.json` back to the
    branch so re-runs don't send duplicate alerts.
 
-If AMC's catalog API doesn't end up exposing this theatre's showtimes far
-enough in advance, `amc_monitor/amc_client.py` is the single place to swap
-in a scraping-based fetch — the rest of the pipeline (filter/diff/notify)
-stays the same.
+This is inherently fragile: it depends on AMC's current page markup and on
+Chromium continuing to clear Cloudflare's challenge, neither of which is
+guaranteed to keep working. If AMC changes their site, `showtime_scraper.py`
+and `seat_scraper.py` are where to look — see the module docstrings for the
+exact markup each one currently expects.
 
 ## One-time setup
 
-### 1. Get an AMC API vendor key
-
-Request one at
-[developers.amctheatres.com/GettingStarted/NewVendorRequest](https://developers.amctheatres.com/GettingStarted/NewVendorRequest).
-Catalog/read-only access (showtimes, theatres, movies) doesn't require a
-business contract — only ecommerce/purchase endpoints do. This project
-only reads showtime data.
-
-### 2. Resolve the theatre id
-
-Once you have a vendor key:
-
-```bash
-pip install -r requirements.txt
-AMC_VENDOR_KEY=<your key> python scripts/resolve_theatre.py "Lincoln Square"
-```
-
-This prints matching theatres from the API — copy the numeric id into
-`AMC_THEATRE_ID`. (The exact query parameter/response shape is built from
-AMC's published docs rather than a live-tested call, so if this script
-doesn't return the theatre, open the API reference at
-`developers.amctheatres.com/ApiReference/theatre-api-v2` and adjust
-`find_theatre_id` in `amc_monitor/amc_client.py` to match.)
-
-### 3. Telegram bot
+### 1. Telegram bot
 
 You've already created the bot via @BotFather. To get your numeric chat id:
 
@@ -57,16 +43,23 @@ You've already created the bot via @BotFather. To get your numeric chat id:
    ```
 3. Read `message.chat.id` out of the response.
 
-### 4. Add GitHub Actions secrets
+### 2. Add GitHub Actions secrets
 
 In the repo's Settings → Secrets and variables → Actions, add:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
-- `AMC_VENDOR_KEY`
-- `AMC_THEATRE_ID`
 
-### 5. Enable the workflow
+### 3. Confirm the scraper still works
+
+Before relying on the schedule, run the **Test seat scrape** workflow
+(Actions tab → workflow_dispatch) with a real showtime id — grab one from
+`https://www.amctheatres.com/showtimes/<id>/seats` after clicking through
+a showtime on AMC's site. It prints a clear pass/fail (including whether
+Cloudflare blocked it) and uploads a screenshot + page HTML as a build
+artifact either way.
+
+### 4. Enable the monitor workflow
 
 The workflow in `.github/workflows/monitor.yml` runs every 15 minutes and
 can also be triggered manually from the Actions tab (`workflow_dispatch`).
@@ -77,7 +70,8 @@ wired up before relying on the schedule.
 
 ```bash
 pip install -r requirements.txt
-pytest                # unit tests for the filter/diff logic, no network calls
-cp .env.example .env  # fill in values, then `set -a; source .env; set +a`
+playwright install chromium   # only needed for the scraper, not for pytest
+pytest                        # unit tests for the filter/diff logic, no network calls
+cp .env.example .env          # fill in values, then `set -a; source .env; set +a`
 python main.py
 ```
