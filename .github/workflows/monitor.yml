@@ -1,0 +1,44 @@
+name: AMC Odyssey 70mm Monitor
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: amc-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run monitor
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          AMC_VENDOR_KEY: ${{ secrets.AMC_VENDOR_KEY }}
+          AMC_THEATRE_ID: ${{ secrets.AMC_THEATRE_ID }}
+        run: python main.py
+
+      - name: Commit updated state
+        run: |
+          git config user.name "amc-ticket-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update notified-showtimes state"
+            git push
+          fi
