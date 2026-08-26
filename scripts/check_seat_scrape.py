@@ -29,10 +29,12 @@ def main():
         sys.exit(2)
 
     showtime_id = sys.argv[1]
+    debug_dir = "seat-scrape-debug"
     print(f"Fetching seat map for showtime {showtime_id}...")
+    print(f"(screenshot + page HTML will be saved to {debug_dir}/ regardless of outcome)")
 
     try:
-        seats = fetch_seat_availability(showtime_id)
+        seats = fetch_seat_availability(showtime_id, debug_dir=debug_dir)
     except CloudflareBlockedError as exc:
         print(f"BLOCKED by Cloudflare: {exc}")
         sys.exit(1)

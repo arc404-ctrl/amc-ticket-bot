@@ -28,3 +28,11 @@ jobs:
 
       - name: Run seat scrape diagnostic
         run: python scripts/check_seat_scrape.py "${{ inputs.showtime_id }}"
+
+      - name: Upload debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seat-scrape-debug
+          path: seat-scrape-debug/
+          if-no-files-found: ignore
