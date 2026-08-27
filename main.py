@@ -1,5 +1,6 @@
 import logging
 import sys
+import time
 
 from amc_monitor import config, state
 from amc_monitor.filters import format_local_time, is_attendable_time, is_available, showtime_id
@@ -45,7 +46,9 @@ def main():
 
         for s in candidates:
             sid = showtime_id(s)
+            started = time.monotonic()
             good_seats = _good_seats_for(b, sid)
+            log.info("checked showtime %s in %.1fs", sid, time.monotonic() - started)
             if good_seats is None:
                 continue  # scrape failed -- leave state as-is, try again next run
 

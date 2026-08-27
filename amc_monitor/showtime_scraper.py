@@ -22,6 +22,7 @@ span rather than a verified structural signal.
 """
 import logging
 import re
+import time
 from datetime import date, timedelta
 
 from .scrape_utils import ScrapeError, goto_and_settle
@@ -55,6 +56,7 @@ def _parse_showtime_link(link):
 
 
 def _fetch_showtimes_for_date(browser_, movie_slug, theatre_slug, format_slug, day, timeout_ms, debug_dir):
+    started = time.monotonic()
     url = SHOWTIMES_URL.format(
         movie_slug=movie_slug,
         date=day.isoformat(),
@@ -72,6 +74,7 @@ def _fetch_showtimes_for_date(browser_, movie_slug, theatre_slug, format_slug, d
     try:
         links = page.query_selector_all(SHOWTIME_LINK_SELECTOR)
         showtimes = [_parse_showtime_link(link) for link in links]
+        log.info("fetched %s in %.1fs (%d showtimes)", day, time.monotonic() - started, len(showtimes))
         return [s for s in showtimes if s is not None]
     finally:
         page.close()

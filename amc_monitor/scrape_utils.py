@@ -19,6 +19,7 @@ this is guaranteed to keep working -- it's an arms race, not a fix.
 import logging
 import os
 import tempfile
+import time
 from contextlib import contextmanager
 
 from patchright.sync_api import TimeoutError as PlaywrightTimeoutError
@@ -81,11 +82,23 @@ def goto_and_settle(browser_, url, wait_selector, timeout_ms=30000, debug_dir=No
     it once done reading from it.
     """
     page = browser_.new_page()
+    nav_started = time.monotonic()
     page.goto(url, timeout=timeout_ms, wait_until="domcontentloaded")
+    nav_elapsed = time.monotonic() - nav_started
+
+    wait_started = time.monotonic()
+    timed_out = False
     try:
         page.wait_for_selector(wait_selector, timeout=timeout_ms)
     except PlaywrightTimeoutError:
-        pass
+        timed_out = True
+    log.info(
+        "%s: goto=%.1fs wait_for_selector=%.1fs (timed_out=%s)",
+        debug_name,
+        nav_elapsed,
+        time.monotonic() - wait_started,
+        timed_out,
+    )
 
     title = (page.title() or "").strip()
 
