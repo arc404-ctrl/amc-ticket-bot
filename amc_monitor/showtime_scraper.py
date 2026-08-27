@@ -24,7 +24,7 @@ import logging
 import re
 from datetime import date, timedelta
 
-from .scrape_utils import ScrapeError, browser, goto_and_settle
+from .scrape_utils import ScrapeError, goto_and_settle
 
 log = logging.getLogger("amc-monitor.showtimes")
 
@@ -77,23 +77,25 @@ def _fetch_showtimes_for_date(browser_, movie_slug, theatre_slug, format_slug, d
         page.close()
 
 
-def fetch_showtimes_for_range(movie_slug, theatre_slug, format_slug, days_ahead, timeout_ms=30000, debug_dir=None):
+def fetch_showtimes_for_range(browser_, movie_slug, theatre_slug, format_slug, days_ahead, timeout_ms=30000, debug_dir=None):
     """
     Scrapes each of the next `days_ahead` days (starting today) for
-    showtimes matching movie/theatre/format, reusing one browser instance
-    across all the page loads. A day that errors (e.g. a transient
-    Cloudflare block) is logged and skipped rather than failing the whole
-    run -- the next poll will pick it back up.
+    showtimes matching movie/theatre/format, reusing the given browser
+    instance (see scrape_utils.browser()) across all the page loads --
+    callers should pass one shared browser in from main.py so a whole
+    run's worth of pages (listing + every seat map) only pays the
+    (expensive, headed) browser-launch cost once. A day that errors (e.g.
+    a transient Cloudflare block) is logged and skipped rather than
+    failing the whole run -- the next poll will pick it back up.
     """
     today = date.today()
     all_showtimes = []
-    with browser() as b:
-        for offset in range(days_ahead):
-            day = today + timedelta(days=offset)
-            try:
-                all_showtimes.extend(
-                    _fetch_showtimes_for_date(b, movie_slug, theatre_slug, format_slug, day, timeout_ms, debug_dir)
-                )
-            except ScrapeError as exc:
-                log.warning("skipping %s: %s", day, exc)
+    for offset in range(days_ahead):
+        day = today + timedelta(days=offset)
+        try:
+            all_showtimes.extend(
+                _fetch_showtimes_for_date(browser_, movie_slug, theatre_slug, format_slug, day, timeout_ms, debug_dir)
+            )
+        except ScrapeError as exc:
+            log.warning("skipping %s: %s", day, exc)
     return all_showtimes

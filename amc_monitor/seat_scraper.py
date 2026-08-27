@@ -28,46 +28,50 @@ class SeatScrapeError(ScrapeError):
     pass
 
 
-def fetch_seat_availability(showtime_id, timeout_ms=30000, debug_dir=None):
+def fetch_seat_availability(browser_, showtime_id, timeout_ms=30000, debug_dir=None):
     """
     Returns a list of {"name", "label", "available"} dicts, one per seat.
     Raises CloudflareBlockedError if the bot check intercepted the request,
     or SeatScrapeError for any other failure to find seat data.
+
+    Takes an already-open browser (see scrape_utils.browser()) rather than
+    launching its own -- callers checking many showtimes in one run should
+    open one browser and pass it to every call, since each (headed)
+    browser launch is the expensive part, not the page load itself.
     """
     url = SEATS_URL.format(showtime_id=showtime_id)
-    with browser() as b:
-        page = goto_and_settle(
-            b, url, SEAT_SELECTOR, timeout_ms=timeout_ms, debug_dir=debug_dir, debug_name="seats"
-        )
-        try:
-            seat_inputs = page.query_selector_all(SEAT_SELECTOR)
-            if not seat_inputs:
-                raise SeatScrapeError(
-                    f"no seat elements found for showtime {showtime_id} "
-                    f"(page title: {page.title()!r})"
-                )
+    page = goto_and_settle(
+        browser_, url, SEAT_SELECTOR, timeout_ms=timeout_ms, debug_dir=debug_dir, debug_name=f"seats-{showtime_id}"
+    )
+    try:
+        seat_inputs = page.query_selector_all(SEAT_SELECTOR)
+        if not seat_inputs:
+            raise SeatScrapeError(
+                f"no seat elements found for showtime {showtime_id} "
+                f"(page title: {page.title()!r})"
+            )
 
-            seats = []
-            for el in seat_inputs:
-                name = el.get_attribute("name")
-                if not name or not SEAT_NAME_RE.match(name):
-                    continue
-                seats.append(
-                    {
-                        "name": name,
-                        "label": el.get_attribute("aria-label") or "",
-                        "available": el.get_attribute("disabled") is None,
-                    }
-                )
+        seats = []
+        for el in seat_inputs:
+            name = el.get_attribute("name")
+            if not name or not SEAT_NAME_RE.match(name):
+                continue
+            seats.append(
+                {
+                    "name": name,
+                    "label": el.get_attribute("aria-label") or "",
+                    "available": el.get_attribute("disabled") is None,
+                }
+            )
 
-            if not seats:
-                raise SeatScrapeError(
-                    f"seat checkboxes found but none matched expected naming for showtime {showtime_id}"
-                )
+        if not seats:
+            raise SeatScrapeError(
+                f"seat checkboxes found but none matched expected naming for showtime {showtime_id}"
+            )
 
-            return seats
-        finally:
-            page.close()
+        return seats
+    finally:
+        page.close()
 
 
 def summarize(seats):

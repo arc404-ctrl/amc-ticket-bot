@@ -16,6 +16,7 @@ import sys
 sys.path.insert(0, ".")
 
 from amc_monitor.good_seats import find_good_available_seats  # noqa: E402
+from amc_monitor.scrape_utils import browser  # noqa: E402
 from amc_monitor.seat_scraper import (  # noqa: E402
     CloudflareBlockedError,
     SeatScrapeError,
@@ -35,7 +36,8 @@ def main():
     print(f"(screenshot + page HTML will be saved to {debug_dir}/ regardless of outcome)")
 
     try:
-        seats = fetch_seat_availability(showtime_id, debug_dir=debug_dir)
+        with browser() as b:
+            seats = fetch_seat_availability(b, showtime_id, debug_dir=debug_dir)
     except CloudflareBlockedError as exc:
         print(f"BLOCKED by Cloudflare: {exc}")
         sys.exit(1)
