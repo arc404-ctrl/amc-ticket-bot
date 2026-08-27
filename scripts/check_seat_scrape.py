@@ -15,6 +15,7 @@ import sys
 
 sys.path.insert(0, ".")
 
+from amc_monitor.good_seats import find_good_available_seats  # noqa: E402
 from amc_monitor.seat_scraper import (  # noqa: E402
     CloudflareBlockedError,
     SeatScrapeError,
@@ -48,6 +49,11 @@ def main():
         print("Available:", ", ".join(summary["available_seats"][:40]))
     sample = seats[:5]
     print("Sample seats:", sample)
+
+    good = find_good_available_seats(seats)
+    print(f"Good (central + available) seats: {len(good)}")
+    if good:
+        print("Good seats:", ", ".join(good))
 
 
 if __name__ == "__main__":
