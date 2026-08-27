@@ -1,20 +1,28 @@
 """
-Shared Playwright plumbing for scraping AMC's public website.
+Shared browser-automation plumbing for scraping AMC's public website.
 
 AMC's developer API gates seating and (in practice) reliable showtime
 listings behind a contractual approval process with no self-service option
 (see README). Everything under amc_monitor/*_scraper.py instead reads the
 same pages a browser would, which means going through Cloudflare's bot
-check -- headless Chromium clears it as of the last check
-(see .github/workflows/test-seat-scrape.yml), but that's not guaranteed to
-keep working if AMC's protection changes.
+check. Plain headless Playwright cleared it initially but got flagged into
+a hard "Attention Required!" challenge after a day of GitHub Actions
+traffic -- that's an IP-reputation problem as much as a fingerprinting one
+(GitHub-hosted runners are a well-known datacenter range), so this uses
+patchright (a patched, actively-maintained Playwright fork built to evade
+this kind of detection) run headed via Xvfb rather than plain headless
+Playwright -- patchright's own guidance is that headless mode defeats the
+point since Cloudflare's challenge relies on a cookie that a real browser
+session earns. See .github/workflows/*.yml for the Xvfb wrapper. None of
+this is guaranteed to keep working -- it's an arms race, not a fix.
 """
 import logging
 import os
+import tempfile
 from contextlib import contextmanager
 
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from playwright.sync_api import sync_playwright
+from patchright.sync_api import TimeoutError as PlaywrightTimeoutError
+from patchright.sync_api import sync_playwright
 
 log = logging.getLogger("amc-monitor.scrape")
 
@@ -44,13 +52,21 @@ def _save_debug_artifacts(page, debug_dir, name):
 
 @contextmanager
 def browser():
-    """One headless Chromium instance, reused across multiple page loads."""
+    """
+    One persistent, headed Chromium context, reused across multiple page
+    loads. Persistent + headed is patchright's own recommendation for
+    actually clearing Cloudflare's challenge -- a plain headless
+    launch()/new_page() (what this used before) is easier to fingerprint
+    and can't hold onto the challenge-solution cookie the way a real
+    browser session does.
+    """
     with sync_playwright() as p:
-        b = p.chromium.launch()
-        try:
-            yield b
-        finally:
-            b.close()
+        with tempfile.TemporaryDirectory() as user_data_dir:
+            context = p.chromium.launch_persistent_context(user_data_dir, headless=False)
+            try:
+                yield context
+            finally:
+                context.close()
 
 
 def goto_and_settle(browser_, url, wait_selector, timeout_ms=30000, debug_dir=None, debug_name="page"):

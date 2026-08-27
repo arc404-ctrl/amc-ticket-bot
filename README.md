@@ -9,8 +9,11 @@ on a schedule via GitHub Actions — no server to maintain.
 AMC's developer API (`developers.amctheatres.com`) gates seating and
 showtime-listing access behind a contractual approval process with no
 self-service option — there's no vendor key that gets you this data. So
-this project reads AMC's public website directly instead, via a headless
-browser (Playwright/Chromium, needed to clear Cloudflare's bot check):
+this project reads AMC's public website directly instead, via a real
+(non-headless) Chromium session run through `patchright` — a Playwright
+fork built to evade Cloudflare's bot detection, which plain headless
+Playwright got flagged by after about a day of GitHub Actions traffic. No
+guarantee this holds either; see `scrape_utils.py`'s docstring.
 
 1. `amc_monitor/showtime_scraper.py` scrapes the movie's showtimes-listing
    page for the configured theatre/format across a rolling window of
@@ -33,10 +36,13 @@ browser (Playwright/Chromium, needed to clear Cloudflare's bot check):
    branch.
 
 This is inherently fragile: it depends on AMC's current page markup and on
-Chromium continuing to clear Cloudflare's challenge, neither of which is
-guaranteed to keep working. If AMC changes their site, `showtime_scraper.py`
-and `seat_scraper.py` are where to look — see the module docstrings for the
-exact markup each one currently expects.
+patchright continuing to clear Cloudflare's challenge, neither of which is
+guaranteed to keep working — Cloudflare evasion is an arms race, and this
+already lost round one (plain headless Playwright) after about a day of
+traffic. If AMC's markup changes, `showtime_scraper.py` and
+`seat_scraper.py` are where to look; if Cloudflare wins again, the real fix
+is likely running this from a residential IP (e.g. your own machine)
+instead of GitHub-hosted runners, not another stealth library.
 
 Re-scraping every candidate showtime's seat map every run is the expensive
 part (~7s each) — at today's ~90 total Odyssey/IMAX-70mm showtimes across
@@ -86,8 +92,8 @@ wired up before relying on the schedule.
 
 ```bash
 pip install -r requirements.txt
-playwright install chromium   # only needed for the scraper, not for pytest
+patchright install chromium   # only needed for the scraper, not for pytest
 pytest                        # unit tests for the filter/diff logic, no network calls
 cp .env.example .env          # fill in values, then `set -a; source .env; set +a`
-python main.py
+python main.py                # needs a display (headed) -- xvfb-run -a python main.py on a headless machine
 ```

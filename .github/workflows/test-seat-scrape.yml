@@ -24,10 +24,12 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          playwright install --with-deps chromium
+          patchright install --with-deps chromium
+          sudo apt-get update && sudo apt-get install -y xvfb
 
       - name: Run seat scrape diagnostic
-        run: python scripts/check_seat_scrape.py "${{ inputs.showtime_id }}"
+        # Headed (via Xvfb), not headless -- see scrape_utils.py docstring.
+        run: xvfb-run -a python scripts/check_seat_scrape.py "${{ inputs.showtime_id }}"
 
       - name: Upload debug artifacts
         if: always()
