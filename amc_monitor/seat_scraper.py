@@ -28,16 +28,21 @@ class SeatScrapeError(ScrapeError):
     pass
 
 
-def fetch_seat_availability(browser_, showtime_id, timeout_ms=30000, debug_dir=None):
+def fetch_seat_availability(browser_, showtime_id, timeout_ms=45000, debug_dir=None):
     """
     Returns a list of {"name", "label", "available"} dicts, one per seat.
     Raises CloudflareBlockedError if the bot check intercepted the request,
     or SeatScrapeError for any other failure to find seat data.
 
     Takes an already-open browser (see scrape_utils.browser()) rather than
-    launching its own -- callers checking many showtimes in one run should
-    open one browser and pass it to every call, since each (headed)
-    browser launch is the expensive part, not the page load itself.
+    launching its own. Reusing one browser across many showtimes in a run
+    doesn't save much here -- measured in production, Cloudflare's
+    challenge on this specific route (unlike the showtime-listing pages)
+    takes ~30s to resolve essentially every time regardless of browser
+    reuse, which is why the default timeout is higher than
+    goto_and_settle's own default: 30s was cutting it exactly at the
+    resolution time and relying on query_selector_all() getting lucky a
+    moment after wait_for_selector gave up.
     """
     url = SEATS_URL.format(showtime_id=showtime_id)
     page = goto_and_settle(

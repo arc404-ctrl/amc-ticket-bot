@@ -45,12 +45,18 @@ is likely running this from a residential IP (e.g. your own machine)
 instead of GitHub-hosted runners, not another stealth library.
 
 Re-scraping every candidate showtime's seat map every run is the expensive
-part (~7s each) — at today's ~90 total Odyssey/IMAX-70mm showtimes across
-21 days, the time-of-day filter is what keeps this from being an
-11-minute run every 15 minutes. If `DAYS_AHEAD` or the filter changes and
-runs start taking longer than the 15-minute cron interval, runs will queue
-up behind each other (`concurrency.cancel-in-progress: false` in
-`monitor.yml`) rather than overlap, but polling will effectively slow down.
+part, and not because of anything in this code: Cloudflare's challenge on
+`/showtimes/{id}/seats` specifically (unlike the listing pages, which clear
+in under a second) measured at ~30-35s to resolve per showtime, essentially
+every time, regardless of browser reuse. At today's ~60 candidates after
+the time-of-day filter, that's a ~35-40 minute run — which is why the cron
+is hourly, not every 15 minutes. If `DAYS_AHEAD` or the filter widens the
+candidate count further, runs will queue up behind each other
+(`concurrency.cancel-in-progress: false` in `monitor.yml`) rather than
+overlap, but polling will effectively slow down even more. The only real
+levers are narrowing which showtimes get checked or accepting a longer
+interval — running seat-checks concurrently would cut wall-clock time but
+risks the bursty-traffic pattern that triggered the original hard block.
 
 ## One-time setup
 
@@ -83,8 +89,8 @@ artifact either way.
 
 ### 4. Enable the monitor workflow
 
-The workflow in `.github/workflows/monitor.yml` runs every 15 minutes and
-can also be triggered manually from the Actions tab (`workflow_dispatch`).
+The workflow in `.github/workflows/monitor.yml` runs hourly and can also
+be triggered manually from the Actions tab (`workflow_dispatch`).
 Trigger it manually once after adding secrets to confirm everything is
 wired up before relying on the schedule.
 
