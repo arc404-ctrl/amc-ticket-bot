@@ -37,5 +37,10 @@ def test_is_attendable_time_true_when_time_unparseable():
     assert is_attendable_time({"when": None})
 
 
+def test_is_attendable_time_false_for_6am_even_on_weekend():
+    # 2026-08-29 is a Saturday; 10:00 UTC is 6:00am ET.
+    assert not is_attendable_time({"when": "2026-08-29T10:00:00.000Z"})
+
+
 def test_format_local_time():
     assert format_local_time({"when": "2026-08-26T22:00:00.000Z"}) == "Wed, Aug 26 at 6:00 PM"

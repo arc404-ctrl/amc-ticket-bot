@@ -5,6 +5,7 @@ SOLD_OUT_MARKERS = ("sold out",)
 
 THEATRE_TIMEZONE = ZoneInfo("America/New_York")
 WEEKDAY_EVENING_HOUR = 18  # weekday showtimes before 6pm local are skipped
+EXCLUDED_HOURS = {6}  # 6am showtimes are skipped regardless of day
 
 
 def is_available(showtime):
@@ -26,12 +27,14 @@ def _local_datetime(showtime):
 def is_attendable_time(showtime):
     """
     True for any weekend showtime, or a weekday showtime at/after 6pm
-    local time. Showtimes with no parseable time are kept rather than
-    silently dropped.
+    local time -- except 6am showtimes, which are always excluded.
+    Showtimes with no parseable time are kept rather than silently dropped.
     """
     dt = _local_datetime(showtime)
     if dt is None:
         return True
+    if dt.hour in EXCLUDED_HOURS:
+        return False
     if dt.weekday() >= 5:  # Saturday=5, Sunday=6
         return True
     return dt.hour >= WEEKDAY_EVENING_HOUR
