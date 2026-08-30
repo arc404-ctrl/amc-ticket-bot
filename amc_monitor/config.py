@@ -14,6 +14,24 @@ THEATRE_NAME = "AMC Lincoln Square 13"
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
+# Auto-checkout: buys against the payment method already saved on the
+# AMC account (see README) -- no card number/expiry is ever handled
+# here. AMC_CVV is the one exception: AMC re-prompts for the saved
+# card's CVV when a purchase hasn't happened in a while (which is
+# expected for this bot's usage pattern), and there's no way past that
+# prompt without it. Storing a CVV is against PCI norms for a reason --
+# this is a deliberate, informed tradeoff for full automation (see
+# README's Security section), not something to treat as routine config.
+AMC_EMAIL = os.environ.get("AMC_EMAIL", "")
+AMC_PASSWORD = os.environ.get("AMC_PASSWORD", "")
+AMC_CVV = os.environ.get("AMC_CVV", "")
+# Safety gate, default off: even with AMC_EMAIL/AMC_PASSWORD configured,
+# main.py only attempts a real purchase when this is explicitly "true".
+# Verify amc_monitor/checkout_scraper.py's selectors against the live
+# site first via scripts/check_checkout_flow.py (dry-run) -- see README.
+AMC_AUTO_PURCHASE = os.environ.get("AMC_AUTO_PURCHASE", "false").lower() == "true"
+MAX_SEATS_TO_PURCHASE = 4
+
 # How many days ahead to poll for showtimes on each run.
 DAYS_AHEAD = 21
 

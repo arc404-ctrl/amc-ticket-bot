@@ -36,10 +36,20 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          AMC_EMAIL: ${{ secrets.AMC_EMAIL }}
+          AMC_PASSWORD: ${{ secrets.AMC_PASSWORD }}
+          AMC_CVV: ${{ secrets.AMC_CVV }}
+          AMC_AUTO_PURCHASE: ${{ vars.AMC_AUTO_PURCHASE }}
         # Headed (via Xvfb), not headless -- see scrape_utils.py docstring.
         run: xvfb-run -a python main.py
 
       - name: Commit updated state
+        # Always runs, even if the step above failed partway through --
+        # main.py saves state.json immediately after each purchase (see
+        # main.py), and a mid-run crash must not lose that record: without
+        # this, a purchased showtime could look unpurchased next run and
+        # get bought again.
+        if: always()
         # Runs take 35-40+ min, so a concurrent push to main (e.g. a manual
         # code push during that window) can win the race and make this
         # plain "git push" fail as a non-fast-forward. Retry with a rebase

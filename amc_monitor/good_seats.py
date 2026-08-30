@@ -42,6 +42,7 @@ def _parse(seats):
             {
                 "name": seat["name"],
                 "available": seat.get("available", False),
+                "row_letters": row_letters,
                 "row_value": _row_value(row_letters),
                 "column": int(col_str),
             }
@@ -75,3 +76,67 @@ def find_good_available_seats(seats):
             good.append(s["name"])
 
     return sorted(good, key=lambda n: (SEAT_NAME_RE.match(n).group(1), int(SEAT_NAME_RE.match(n).group(2))))
+
+
+def _longest_run(sorted_columns):
+    """Yields (start_index, end_index) of each maximal run of consecutive integers."""
+    start = 0
+    for i in range(1, len(sorted_columns) + 1):
+        if i == len(sorted_columns) or sorted_columns[i] != sorted_columns[i - 1] + 1:
+            yield start, i - 1
+            start = i
+
+
+def find_best_seat_block(seats, max_count=4):
+    """
+    Returns up to `max_count` adjacent (same row, consecutive column) good
+    seats -- the longest contiguous run among the central+available seats
+    from find_good_available_seats, so a purchase lands together rather
+    than as scattered singles. If the longest run exceeds `max_count`, a
+    centered sub-block of that size is taken. Ties on run length are
+    broken by preferring the more central row. Empty input or no good
+    seats at all returns [].
+    """
+    parsed = _parse(seats)
+    if not parsed:
+        return []
+
+    row_values = sorted({s["row_value"] for s in parsed})
+    min_row, max_row = row_values[0], row_values[-1]
+    row_buffer = max(1, max_row - min_row) * ROW_BUFFER_RATIO
+    good_rows = sorted(v for v in row_values if min_row + row_buffer <= v <= max_row - row_buffer)
+    row_center = (min_row + max_row) / 2
+
+    columns_by_row = defaultdict(list)
+    for s in parsed:
+        columns_by_row[s["row_value"]].append(s["column"])
+
+    best = None  # (run_length, -row_centrality_penalty, columns_by_row_ref, row_value, start_col, end_col)
+    for row_value in good_rows:
+        columns = columns_by_row[row_value]
+        min_col, max_col = min(columns), max(columns)
+        col_buffer = max(1, max_col - min_col) * COLUMN_BUFFER_RATIO
+
+        good_cols = sorted(
+            s["column"] for s in parsed
+            if s["row_value"] == row_value
+            and s["available"]
+            and min_col + col_buffer <= s["column"] <= max_col - col_buffer
+        )
+        for start_i, end_i in _longest_run(good_cols):
+            run_cols = good_cols[start_i : end_i + 1]
+            run_len = len(run_cols)
+            if run_len > max_count:
+                trim = (run_len - max_count) // 2
+                run_cols = run_cols[trim : trim + max_count]
+                run_len = max_count
+            candidate = (run_len, -abs(row_value - row_center), row_value, run_cols)
+            if best is None or candidate[:2] > best[:2]:
+                best = candidate
+
+    if best is None:
+        return []
+
+    _, _, row_value, run_cols = best
+    row_letters = next(s["row_letters"] for s in parsed if s["row_value"] == row_value)
+    return [f"{row_letters}{c}" for c in run_cols]

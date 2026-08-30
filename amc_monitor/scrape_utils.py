@@ -38,7 +38,7 @@ class CloudflareBlockedError(ScrapeError):
     pass
 
 
-def _save_debug_artifacts(page, debug_dir, name):
+def save_debug_artifacts(page, debug_dir, name):
     os.makedirs(debug_dir, exist_ok=True)
     try:
         page.screenshot(path=os.path.join(debug_dir, f"{name}.png"))
@@ -103,7 +103,7 @@ def goto_and_settle(browser_, url, wait_selector, timeout_ms=30000, debug_dir=No
     title = (page.title() or "").strip()
 
     if debug_dir:
-        _save_debug_artifacts(page, debug_dir, debug_name)
+        save_debug_artifacts(page, debug_dir, debug_name)
 
     if any(marker in title.lower() for marker in CHALLENGE_TITLE_MARKERS):
         page.close()
