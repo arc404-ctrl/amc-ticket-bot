@@ -12,7 +12,10 @@ FORMAT_SLUG = os.environ.get("AMC_FORMAT_SLUG", "imax70mm")
 THEATRE_NAME = "AMC Lincoln Square 13"
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+# Comma-separated to notify more than one chat (e.g. sharing alerts with
+# a friend) -- every recipient gets the identical message, including
+# purchase attempts.
+TELEGRAM_CHAT_IDS = [c.strip() for c in os.environ.get("TELEGRAM_CHAT_ID", "").split(",") if c.strip()]
 
 # Auto-checkout: buys against the payment method already saved on the
 # AMC account (see README) -- no card number/expiry is ever handled

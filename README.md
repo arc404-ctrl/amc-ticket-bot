@@ -90,21 +90,28 @@ risks the bursty-traffic pattern that triggered the original hard block.
 
 ### 1. Telegram bot
 
-You've already created the bot via @BotFather. To get your numeric chat id:
+You've already created the bot via @BotFather. To get a numeric chat id:
 
-1. Send any message to your bot in Telegram.
+1. Have that person send any message to the bot in Telegram (each
+   person who wants alerts needs to message it at least once).
 2. Run:
    ```bash
    curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates"
    ```
 3. Read `message.chat.id` out of the response.
 
+To notify more than one person, repeat this for each of them and join
+the ids with commas in `TELEGRAM_CHAT_ID` (e.g. `111111,222222`) —
+`amc_monitor/telegram_notify.py` sends every alert, including purchase
+attempts, to each one identically. A failure for one recipient doesn't
+block the others or stop it from retrying.
+
 ### 2. Add GitHub Actions secrets
 
 In the repo's Settings → Secrets and variables → Actions, add:
 
 - `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_CHAT_ID`
+- `TELEGRAM_CHAT_ID` (comma-separated for multiple recipients)
 
 ### 3. Confirm the scraper still works
 

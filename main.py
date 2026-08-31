@@ -33,8 +33,10 @@ def _handle_available_showtime(browser_, s, sid, seats, current, showtime_state)
     this bot always sent. Returns True if it's safe to record `current`
     as the showtime's good_seats state -- False to leave state alone so
     this gets retried next run (mirrors the old "don't update state on
-    notify failure" behavior, but a successful purchase is always
-    recorded regardless of whether the follow-up Telegram alert lands).
+    notify failure" behavior; a successful purchase is always recorded
+    regardless of whether the follow-up Telegram alert lands, and a
+    failed checkout attempt always returns False so it keeps retrying
+    next run instead of going quiet on that showtime).
     """
     entry = showtime_state.setdefault(sid, {})
     block = (
@@ -44,6 +46,7 @@ def _handle_available_showtime(browser_, s, sid, seats, current, showtime_state)
     )
 
     purchased = False
+    checkout_failed = False
     if block:
         try:
             order = purchase_seats(
@@ -51,11 +54,13 @@ def _handle_available_showtime(browser_, s, sid, seats, current, showtime_state)
             )
         except CheckoutError as exc:
             log.error("Checkout failed for showtime %s: %s", sid, exc)
+            checkout_failed = True
             text = (
                 f"Good seats open for Odyssey ({config.FORMAT_SLUG}) -- checkout attempt failed: {exc}\n"
                 f"{config.THEATRE_NAME}\n"
                 f"{format_local_time(s)}\n"
-                f"Seats: {', '.join(sorted(current))}"
+                f"Seats: {', '.join(sorted(current))}\n"
+                f"Will retry next run."
             )
         else:
             purchased = True
@@ -89,7 +94,7 @@ def _handle_available_showtime(browser_, s, sid, seats, current, showtime_state)
         log.error("Failed to send Telegram alert for showtime %s: %s", sid, exc)
         return purchased
     log.info("Notified for showtime %s", sid)
-    return True
+    return purchased or not checkout_failed
 
 
 def main():

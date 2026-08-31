@@ -13,7 +13,11 @@
         "E22",
         "E23",
         "E24"
-      ]
+      ],
+      "purchased": true,
+      "order": {
+        "note": "Automated checkout failed (sign-in timeout); purchased manually by the user instead."
+      }
     }
   }
 }
